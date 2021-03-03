@@ -1,124 +1,119 @@
 "use strict"
 
-const startBreathingCyclesButton = document.getElementById("start-breathing-cycles");
+// const startBreathingCyclesButton = document.getElementById("start-breathing-cycles");
 const breathingCycleCounterDisplay = document.getElementById("breathing-counter-display");
 const retentionTimeDisplay = document.getElementById("retention-time-display");
 const saveRetentionTimeButton = document.getElementById("save-retention-time");
 const retentionTimesLog = document.getElementById("retention-times-log");
-// intervall variable that {countdown}, {retentionTimer} and {saveRetentionTime} need access to
-let timer;
-// predicate to control flow in {countdown}
-let holdingBreath = false;
 
-/**
- * on first run disable start buttion, then start first countdown
- */
-const disableStartButton = () => {
-    startBreathingCyclesButton.setAttribute("style", "display: none");
-    startBreathingCyclesButton.disabled = true;
-    countdown(1, 2);
-};
+const render = (props) => {
+        switch (props.state) {
+            case 'breathing': {
+                retentionTimesLog.setAttribute("style", "display: none");
+                breathingCycleCounterDisplay.textContent = props.breathingCycleCounter;
+                break;
+            }
+            case 'retention': {
+                breathingCycleCounterDisplay.setAttribute("style", "display: none;");
+                retentionTimeDisplay.setAttribute("style", "display: block;");
+                saveRetentionTimeButton.setAttribute("style", "display: block;");
 
-/**
- * countdown for breathing cycles
- * @param {Number} lenghtCycle length of each cycle in seconds
- * @param {Number} numberCycles number of breathing cycles
- */
-const countdown = (lenghtCycle = 3, numberCycles = 30) => {
+                retentionTimeDisplay.textContent = Math.trunc((Date.now() - props.retentionTime) / 1000);
+                break;
+            }
+            case 'holdBreath': {
+                retentionTimeDisplay.setAttribute("style", "display: none;");
+                saveRetentionTimeButton.setAttribute("style", "display: none;");
+                retentionTimesLog.setAttribute("style", "display: block");
+                retentionTimesLog.innerHTML = "";
+
+                props.retentionLog.forEach(logEntry => {
+                    const entry = document.createElement("li");
+                    const content = document.createTextNode(logEntry);
+                    entry.appendChild(content);
+                    retentionTimesLog.appendChild(entry)
+                })
+
+                breathingCycleCounterDisplay.setAttribute("style", "display: block");
+                breathingCycleCounterDisplay.textContent = props.holdBreathCounter;
+                break;
+            }
+            default: {
+                throw new Error('Should never happen');
+            }
+        }
+}
+
+const main = () => {
+    // config
+    // these values shouldn't really change, in fact, they could be supplied
+    // via `main` parameters
+    const breathingCycleLength = 3;
+    const breathingCycles = 3;
+
+    // state
+    // these values constantly change as part of `tick` and hooks
+    let breathingCycleCounter = breathingCycles;
+    let holdBreathCounter = 15;
+    let retentionTime = 0;
+    const retentionLog = [];
+    /** @type {'breathing' | 'retention' | 'holdBreath'} */
+    let state = 'breathing';
+
+    // setup
+    // runs _once_ before everything else, e.g. to setup the initial parts in
+    // the DOM
     if (breathingCycleCounterDisplay.style.display === "none") {
         breathingCycleCounterDisplay.setAttribute("style", "display: block");
     }
-    let breathingCycleCounter = numberCycles;
-    breathingCycleCounterDisplay.textContent = breathingCycleCounter;
+    saveRetentionTimeButton.addEventListener('click', preHoldBreath);
 
-    const countBackwards = setInterval(() => {
-        breathingCycleCounter--;
-        breathingCycleCounterDisplay.textContent = breathingCycleCounter;
-        if (breathingCycleCounter <= 0) {
-            clearInterval(countBackwards);
-            if (holdingBreath === false) {
-                retentionTimer();
-            };
+    // state change hooks
+    // these can run before / after every state change
+    function preHoldBreath () {
+        retentionLog.push((Date.now() - retentionTime) / 1000);
+        retentionTime = 0;
+        state = 'holdBreath';
+    }
+
+    // tick
+    const tick = setInterval(() => {
+        const _state = {
+            state,
+            breathingCycleCounter,
+            retentionTime,
+            retentionLog,
+            holdBreathCounter,
         };
-    }, 1000 * lenghtCycle);
-};
+        console.log(_state)
+        render(_state);
+        switch (state) {
+            case 'breathing': {
+                if (breathingCycleCounter <= 0) {
+                    breathingCycleCounter = breathingCycles;
+                    retentionTime = Date.now();
+                    state = 'retention';
+                };                
+                breathingCycleCounter--;
+                break;
+            }
+            case 'retention': {
+                // we wait until the button is pressed
+                break;
+            }
+            case 'holdBreath': {
+                holdBreathCounter--;
+                if (holdBreathCounter <= 0) {
+                    holdBreathCounter = 15;
+                    state = 'breathing';
+                }
+                break;
+            }
+            default: {
+                throw new Error('Should never happen');
+            }
+        }
+    }, 1000);
+}
 
-/**
- * measure time you can hold your breath
- * runs when {countdown} is finished, if it wasn't uset for holding breath
- * finishes when button "save-retention-time" is pressed
- */
-const retentionTimer = () => {
-    breathingCycleCounterDisplay.setAttribute("style", "display: none;");
-    retentionTimeDisplay.setAttribute("style", "display: block;");
-    saveRetentionTimeButton.setAttribute("style", "display: block;");
-
-    let elapsedTime = 0;
-    let pausedTime = 0;
-
-    const integerPart = (float) => Math.trunc(float);
-    const minutes = (float) => integerPart(float / 60);
-    const seconds = (float) => integerPart(float) - minutes(float) * 60;
-    const digits = (float) => integerPart((float - integerPart(float)) * 100);
-
-    const displayFormat = (n) => { return n.toString().padStart(2, 0) }
-
-
-    const startTime = Date.now();
-    timer = setInterval(() => {
-
-        elapsedTime = ((Date.now() - startTime) / 1000 + pausedTime);
-
-        const elapsedMinutes = displayFormat(minutes(elapsedTime));
-        const elapsedSeconds = displayFormat(seconds(elapsedTime));
-        const elapsedDigits = displayFormat(digits(elapsedTime));
-
-        retentionTimeDisplay.textContent = `${elapsedMinutes}:${elapsedSeconds}:${elapsedDigits}`
-
-    }, 10);
-};
-
-/**
- * saves retention time to list
- */
-const saveRetentionTime = () => {
-
-    clearInterval(timer);
-    retentionTimeDisplay.setAttribute("style", "display: none;");
-    saveRetentionTimeButton.setAttribute("style", "display: none;");
-
-    if (retentionTimesLog.style.display === "none") { retentionTimesLog.setAttribute("style", "display: block"); }
-
-    const retentionTimesLogEntry = document.createElement("li");
-    const retentionTimesLogEntryContent = document.createTextNode(retentionTimeDisplay.textContent);
-    retentionTimesLogEntry.appendChild(retentionTimesLogEntryContent);
-    retentionTimesLog.appendChild(retentionTimesLogEntry);
-
-    // save retention time in seperate file together with current date
-    // exportRetentionTime();
-
-    holdBreath();
-};
-
-/**
- * hold breath for 15 seconds
- */
-const holdBreath = () => {
-    breathingCycleCounterDisplay.setAttribute("style", "display: block");
-    holdingBreath = true;
-    countdown(1, 15);
-    holdingBreath = false;
-    countdown();
-
-};
-
-/**
- * save retention time in seperate file together with current date
- */
-const exportRetentionTime = () => { };
-
-
-
-/**
- * Timm: timer clearen nicht richtig?
- */
+main();
