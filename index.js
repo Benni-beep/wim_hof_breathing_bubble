@@ -2,8 +2,11 @@
 
 /**
  * To Do
- * from second round onwards the first number of the breathing cycles is displayed once to little
- * run on shorter intervals so button press "seve retetion time" has no perceived delay
+ * fix: from second round onwards the first number of the breathing cycles is displayed once to little... why?
+ * run on shorter intervals so button press "save retention time" has no perceived delay
+ * export retention time log to seperate file including timestamp
+ * add sounds
+ * add fancy graphics stuff
  */
 
 // const startBreathingCyclesButton = document.getElementById("start-breathing-cycles");
@@ -59,9 +62,9 @@ const render = (props) => {
         }
         default: {
             throw new Error('Should never happen');
-        }
-    }
-}
+        };
+    };
+};
 
 const main = () => {
     // config
@@ -100,7 +103,8 @@ const main = () => {
     const tick = setInterval(() => {
         const _state = {
             state,
-            breathingCycleCounter,
+            breathingCycleLengthCounter,
+            breathingCycleCounter,            
             retentionTime,
             retentionLog,
             holdBreathCounter,
@@ -114,10 +118,12 @@ const main = () => {
                     retentionTime = Date.now();
                     state = 'retention';
                 };
-                // give the same number {breathingCycleLength} times, then --
+                // while "breathing", display each number for {breathingCycleLength} seconds
+                // (actually each number is displayed {breathingCycleLength} times, as {render} is run once per second), 
+                // then breathingCycleCounter--
                 breathingCycleLengthCounter++
                 if (breathingCycleLengthCounter === breathingCycleLength) {
-                    breathingCycleCounter--
+                    breathingCycleCounter--;
                     breathingCycleLengthCounter = 0;
                 }
                 break;
@@ -139,6 +145,6 @@ const main = () => {
             }
         }
     }, 1000);
-}
+};
 
 main();
